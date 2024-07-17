@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "A backend for a streaming app",
   "main": "index.js",
+  "what below command will do(just a comment)": "to use import syntax instead of require",
   "type": "module",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+    "what below command will do(just a comment)": "npm run dev will start your application with Nodemon, load environment variables from a .env file, enable experimental support for JSON modules in node >= 19",
+    "devnode19": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "dev": "nodemon -r dotenv/config src/index.js"
   },
   "keywords": [
     "javascript",
@@ -16,11 +19,14 @@
   "license": "ISC",
   "devDependencies": {
     "nodemon": "^3.1.4",
-    "prettier": "^3.3.2"
+    "prettier": "^3.3.3"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "mongoose": "^8.4.4"
+    "mongoose": "^8.4.4",
+    "mongoose-aggregate-paginate-v2": "^1.1.1"
   }
 }

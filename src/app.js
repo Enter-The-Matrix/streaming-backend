@@ -43,4 +43,12 @@ app.use(express.static("public"));
 //  to easily read and manipulate cookies sent by the client in the Cookie header.
 app.use(cookieParser());
 
+//routes import
+import userRouter  from './routes/user.routes.js'
+
+
+//routes declaration
+
+app.use('/api/v1/users/',userRouter)
+
 export { app };

@@ -5,7 +5,7 @@ import { app } from "./app.js";
 dotenv.config({
   // path is the path where our .env file is located
   // (not necessary to give because we mostly put .env in root and it take path as root by default)
-  path: "./env",
+  path: "./.env",
 });
 
 const PORT = process.env.PORT || 8000;

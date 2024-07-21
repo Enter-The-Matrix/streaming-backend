@@ -71,15 +71,17 @@ userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// method created to generate a jwt token
+// method created to generate a jwt Access Token
+// Access Token: they are used to grant access to protected resources and APIs.
+// Access tokens usually have a short lifespan
 userSchema.methods.generateAccessToken = function () {
-  return (
-    jwt.sign({
+  return jwt.sign(
+    {
       _id: this._id,
       email: this.email,
       username: this.username,
       fullName: this.fullName,
-    }),
+    },
     process.env.ACCESS_TOKEN_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
@@ -87,12 +89,17 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-// method created to generate a jwt refresh token
+// method created to generate a jwt Refresh Token
+// Refresh Token:They are used to obtain new access tokens once the current access token expires.
+// They provide a way to maintain a user's session without requiring them to re-authenticate frequently.
+// Refresh tokens have a longer lifespan than access tokens (e.g., days or weeks)
 userSchema.methods.generateRefreshToken = function () {
-  return (
-    jwt.sign({
+  console.log("inside gen refresh");
+
+  return jwt.sign(
+    {
       _id: this._id,
-    }),
+    },
     process.env.REFRESH_TOKEN_SECRET,
     {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY,

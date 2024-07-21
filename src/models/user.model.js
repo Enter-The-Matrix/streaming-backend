@@ -94,8 +94,6 @@ userSchema.methods.generateAccessToken = function () {
 // They provide a way to maintain a user's session without requiring them to re-authenticate frequently.
 // Refresh tokens have a longer lifespan than access tokens (e.g., days or weeks)
 userSchema.methods.generateRefreshToken = function () {
-  console.log("inside gen refresh");
-
   return jwt.sign(
     {
       _id: this._id,

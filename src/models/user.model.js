@@ -55,8 +55,8 @@ const userSchema = new Schema(
 // document to the database. Don't use an arrow function inside this pre hook
 // "save" is keyword and "password" also
 userSchema.pre("save", async function (next) {
-  // This is a Mongoose method that checks if the specified field ("password" in this case) has been modified
-  // since the document was loaded from the database.
+  // 'isModified()' is a Mongoose method (middleware) that checks if the specified field
+  // ('password' in this case) has been modified since the document was loaded from the database.
   if (!this.isModified("password")) {
     return next();
   }

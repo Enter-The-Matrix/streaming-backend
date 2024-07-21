@@ -265,4 +265,131 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, error?.message || "Invalid refresh token");
   }
 });
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  // 'req.user' we get from 'auth.middleware.js'
+  const user = await User.findById(req.user?._id);
+
+  //  'isPasswordCorrect()' from 'User' model methods created by us
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (isPasswordCorrect) {
+    throw new ApiError(400, "Invalid password");
+  }
+
+  // 'newPassword' set to the 'user'
+  user.password = newPassword;
+
+  // '{validateBeforeSave:false}' tell model not to validate before saving
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  //  we can get 'req.user' because we used 'auth.middleware.js'
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  if (!fullName || !email) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  //  we can get 'req.user' because we used 'auth.middleware.js'
+  const user = User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      // $set operator is used to update specific fields in a document.
+      // It and can be used within Mongoose's 'update', 'updateOne',
+      // 'updateMany', and 'findOneAndUpdate' methods
+      $set: {
+        // fullName and email syntax are similar
+        fullName,
+        email: email,
+      },
+    },
+    // this option enables us to store the updated data to be set in 'const user' above
+    { new: true }
+    // 'select()' method is used to specify which fields should be included or excluded in the query result.
+    // .select('password') just give include 'password' in result
+    //  .select('-password') exclude 'password' and give rest all filed in result
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    throw ApiError(400, "Avatar file is missing");
+  }
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.url) {
+    throw ApiError(400, "Error while uploading avatar on cloudinary");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar image updated successfully"));
+});
+
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+
+  if (!coverImageLocalPath) {
+    throw ApiError(400, "Cover image file is missing");
+  }
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  if (!coverImage.url) {
+    throw ApiError(400, "Error while uploading cover image on cloudinary");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover image updated successfully"));
+});
+
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImage,
+};

@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // function to generate access token and refresh token
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -305,7 +306,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   }
 
   //  we can get 'req.user' because we used 'auth.middleware.js'
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       // $set operator is used to update specific fields in a document.
@@ -381,7 +382,155 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover image updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username is missing");
+  }
 
+  // using mongo aggregate pipeline here
+  const channel = await User.aggregate([
+    // It's similar to the 'find' operation but is used within an aggregation pipeline
+    // to specify the criteria that the documents must meet to be included in the pipeline's processing
+    // db.collection.aggregate([
+    //   {
+    //     $match: { field: { $condition: value } }
+    //   }
+    // ])
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      // The '$lookup' in MongoDB is used to combine documents from two different collections (like tables in SQL) within the same database.
+      // It finds matching documents from another collection and adds these matches to the original documents.
+      // The result is that each original document gets a new field, which contains an array of the matching documents from the other collection.
+      // This process is similar to a "left outer join" in SQL.
+      $lookup: {
+        from: "subscriptions", // the collection to join
+        localField: "_id", // field from the input documents
+        foreignField: "channel", // field from the documents of the "from" collection
+        as: "subscribers", // the name of the new array field to add to the input documents
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions", // the collection to join
+        localField: "_id", // field from the input documents
+        foreignField: "subscriber", // field from the documents of the "from" collection
+        as: "subscribedTo", // the name of the new array field to add to the input documents
+      },
+    },
+    {
+      // The $addFields stage in MongoDB's is used to add new fields to the documents that pass through the aggregation pipeline
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers", //The value of 'subscribersCount' is the size (number of elements) of the 'subscribers' we got from above
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo", // The value of 'channelsSubscribedToCount' is the size (number of elements) of the 'subscribedTo'  we got from above
+        },
+        isSubscribed: {
+          //  '$cond' is similar to an if-else statement
+          //   $cond: {
+          //     if: <condition>,
+          //     then: <true-case>,
+          //     else: <false-case>
+          //   }
+          $cond: {
+            // '$in' operator in MongoDB is used to check if a value is present in an array or object. It returns boolean value
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      // '$project' in MongoDB's is used to include, exclude, or add new fields to the documents in the pipeline
+      $project: {
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel does not exits");
+  }
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, channel[0], "User channel fetched successfully")
+    );
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    // using 'mongoose.Types.ObjectId' convert the user's ID from string format to a MongoDB ObjectId format
+
+    {
+      $match: {
+        _id: mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+                {
+                  // we use '$addFields' to add new fields or modify existing fields in each document
+                  $addFields: {
+                    // Define a new field to be added to each document
+                    owner: {
+                      // Use the "$first" operator to retrieve the first value from an array field
+
+                      $first: "$owner",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "Watch history fetched successfully"
+      )
+    );
+});
 export {
   registerUser,
   loginUser,
@@ -392,4 +541,6 @@ export {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
+  getUserChannelProfile,
+  getWatchHistory,
 };

@@ -17,7 +17,6 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
     // Generate a refresh token using a method defined in the User model
     const refreshToken = user.generateRefreshToken();
-    // console.log("refreshToken:", refreshToken);
 
     // Assign the generated refresh token to the user's 'refreshToken' field
     user.refreshToken = refreshToken;
@@ -193,12 +192,18 @@ const logoutUser = asyncHandler(async (req, res) => {
   // Update the user document by setting the refreshToken to undefined
   //  we have access to 'req.user' coz we have used a custom middleware 'auth.middleware.js'
   // in our 'logout' route
-  await User.findByIdAndUpdate(req.user._id, {
-    // the $set operator is used to update the value of a field in a mongo document
-    $set: {
-      refreshToken: undefined,
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      // '$unset' operator in MongoDB is used to remove fields from documents    $unset: {
+      $unset: {
+        refreshToken: 1,
+      },
     },
-  });
+    {
+      new: true,
+    }
+  );
 
   const options = {
     httpOnly: true, // Cookie accessible only by the web server, not by client-side
@@ -216,7 +221,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 // controller to change the expired access token using refresh token
 const refreshAccessToken = asyncHandler(async (req, res) => {
   // refreshToken from the cookie(from client) or body if using on mobile
-  const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
@@ -305,40 +311,43 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  //  we can get 'req.user' because we used 'auth.middleware.js'
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      // $set operator is used to update specific fields in a document.
-      // It and can be used within Mongoose's 'update', 'updateOne',
-      // 'updateMany', and 'findOneAndUpdate' methods
-      $set: {
-        // fullName and email syntax are similar
-        fullName,
-        email: email,
+  try {
+    // Find user by ID and update details
+    const user = await User.findByIdAndUpdate(
+      req.user?._id,
+      {
+        $set: {
+          fullName,
+          email,
+        },
       },
-    },
-    // this option enables us to store the updated data to be set in 'const user' above
-    { new: true }
-    // 'select()' method is used to specify which fields should be included or excluded in the query result.
-    // .select('password') just give include 'password' in result
-    //  .select('-password') exclude 'password' and give rest all filed in result
-  ).select("-password");
+      { new: true }  // Return the updated document
+    ).select("-password");  // Exclude the password field
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Account details updated successfully"));
+    // If user not found, throw an error
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Send the updated user details in response
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "Account details updated successfully"));
+  } catch (error) {
+    throw new ApiError(500, error.message);
+  }
 });
+
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
-    throw ApiError(400, "Avatar file is missing");
+    throw new ApiError(400, "Avatar file is missing");
   }
   const avatar = await uploadOnCloudinary(avatarLocalPath);
   if (!avatar.url) {
-    throw ApiError(400, "Error while uploading avatar on cloudinary");
+    throw new ApiError(400, "Error while uploading avatar on cloudinary");
   }
 
   const user = await User.findByIdAndUpdate(
@@ -360,11 +369,11 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   const coverImageLocalPath = req.file?.path;
 
   if (!coverImageLocalPath) {
-    throw ApiError(400, "Cover image file is missing");
+    throw new ApiError(400, "Cover image file is missing");
   }
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
   if (!coverImage.url) {
-    throw ApiError(400, "Error while uploading cover image on cloudinary");
+    throw new ApiError(400, "Error while uploading cover image on cloudinary");
   }
 
   const user = await User.findByIdAndUpdate(
